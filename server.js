@@ -5,7 +5,7 @@ var clients = [];
 
 var rooms = {};
 
-var wss = new WebSocket.Server({ port: 2222 });
+var wss = new WebSocket.Server({ port: 2233 });
 
 wss.on("connection", function (client) {
   clients.push(client);
