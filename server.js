@@ -10,7 +10,7 @@ const room = {
 
 const rooms = {};
 
-const wss = new WebSocket.Server({ port: 3002 });
+const wss = new WebSocket.Server({ port: 2222 });
 
 wss.on("connection", (client) => {
   clients.push(client);
