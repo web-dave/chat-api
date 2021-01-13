@@ -1,43 +1,52 @@
-var WebSocket = require("ws");
-var { v4: getID } = require("uuid");
+const WebSocket = require("ws");
+const { v4: getID } = require("uuid");
+const http = require("http");
+const express = require("express");
+const app = express();
+const port = process.env.PORT || 5000;
 
-var clients = [];
+app.use(express.static(__dirname + "/"));
 
-var rooms = {};
+const server = http.createServer(app);
+server.listen(port);
 
-var wss = new WebSocket.Server({ port: 2233 });
+const clients = [];
 
-wss.on("connection", function (client) {
+const rooms = {};
+
+const wss = new WebSocket.Server({ port: 2233 });
+
+wss.on("connection", (client) => {
   clients.push(client);
-  var id = getID();
+  const id = getID();
   client.uid = id;
-  var msg = {
+  const msg = {
     type: "connection",
     message: "Welcome",
     id: id,
   };
   client.send(JSON.stringify(msg));
 
-  client.on("close", function () {
-    clients.forEach(function (c, i) {
+  client.on("close", () => {
+    clients.forEach((c, i) => {
       if (c === client) {
         clients.splice(i, 1);
       }
     });
-    var roomIds = Object.keys(rooms);
-    roomIds.forEach(function (rId) {
+    const roomIds = Object.keys(rooms);
+    roomIds.forEach((rId) => {
       if (rooms[rId].attendees.includes(client)) {
-        var msg = {
+        const msg = {
           type: "leave",
           message: "Tschö mit Ö",
           id: client.uid,
         };
-        rooms[rId].attendees.forEach(function (c) {
+        rooms[rId].attendees.forEach((c) => {
           if (c !== client) {
             c.send(JSON.stringify(msg));
           }
         });
-        rooms[rId].attendees.forEach(function (c, i) {
+        rooms[rId].attendees.forEach((c, i) => {
           if (c === client) {
             clients.splice(i, 1);
           }
@@ -48,9 +57,9 @@ wss.on("connection", function (client) {
       }
     });
   });
-  client.on("message", function (m) {
-    var msg = JSON.parse(m);
-    var room = msg.id;
+  client.on("message", (m) => {
+    const msg = JSON.parse(m);
+    const room = msg.id;
     switch (msg.type) {
       case "connection":
         client.name = msg.message;
@@ -59,7 +68,7 @@ wss.on("connection", function (client) {
         console.log(client.name);
         msg.id = client.name;
         if (rooms[room]) {
-          rooms[room].attendees.forEach(function (c) {
+          rooms[room].attendees.forEach((c) => {
             c.send(JSON.stringify(msg));
           });
         }
@@ -74,7 +83,7 @@ wss.on("connection", function (client) {
         }
         rooms[room].attendees.push(client);
 
-        rooms[room].attendees.forEach(function (c) {
+        rooms[room].attendees.forEach((c) => {
           if (c !== client) {
             c.send(JSON.stringify(msg));
           }
@@ -83,7 +92,7 @@ wss.on("connection", function (client) {
       case "available":
         if (rooms[room]) {
           msg.id = msg.message;
-          rooms[room].attendees.forEach(function (c) {
+          rooms[room].attendees.forEach((c) => {
             console.log("call", c.name);
             if (c !== client) {
               c.send(JSON.stringify(msg));
