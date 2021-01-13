@@ -1,21 +1,13 @@
 const WebSocket = require("ws").Server;
 const { v4: getID } = require("uuid");
-const http = require("http");
-const express = require("express");
-const app = express();
 const port = process.env.PORT || 2233;
-
-app.use(express.static(__dirname + "/"));
-
-const server = http.createServer(app);
-server.listen(port);
-console.log("http server listening on %d", port);
 
 const clients = [];
 
 const rooms = {};
 
-const wss = new WebSocket({ server });
+const wss = new WebSocket({ port });
+console.log("ws:// listening on %d", port);
 
 wss.on("connection", (client) => {
   clients.push(client);
