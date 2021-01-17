@@ -1,3 +1,4 @@
+// maybe replace with socket.io
 const WebSocket = require("ws").Server;
 const { v4: getID } = require("uuid");
 const port = process.env.PORT || 2233;
@@ -75,16 +76,19 @@ wss.on("connection", (client) => {
           };
         }
         rooms[room].attendees.push(client);
-
+        const list = [];
         rooms[room].attendees.forEach((c) => {
-          if (c !== client) {
-            c.send(JSON.stringify(msg));
-          }
+          list.push({ name: c.name, id: c.uid });
+        });
+        const m = { message: list, id: client.uid, type: "list" };
+        rooms[room].attendees.forEach((c) => {
+          c.send(JSON.stringify(m));
         });
         break;
       case "available":
         if (rooms[room]) {
           msg.id = msg.message;
+          msg.message = client.name;
           rooms[room].attendees.forEach((c) => {
             console.log("call", c.name);
             if (c !== client) {
@@ -92,8 +96,6 @@ wss.on("connection", (client) => {
             }
           });
         }
-        break;
-      case "leave":
         break;
     }
   });
