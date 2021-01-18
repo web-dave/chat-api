@@ -3,17 +3,17 @@ const WebSocket = require("ws").Server;
 const { v4: getID } = require("uuid");
 const port = process.env.PORT || 2233;
 
-const clients = [];
+const CLIENTS = new Map();
 
-const rooms = {};
+const ROOMS = new Map();
 
 const wss = new WebSocket({ port });
 console.log("ws:// listening on %d", port);
 
 wss.on("connection", (client) => {
-  clients.push(client);
   const id = getID();
   client.uid = id;
+  CLIENTS.set(id, client);
   const msg = {
     type: "connection",
     message: "Welcome",
@@ -22,34 +22,28 @@ wss.on("connection", (client) => {
   client.send(JSON.stringify(msg));
 
   client.on("close", () => {
-    clients.forEach((c, i) => {
-      if (c === client) {
-        clients.splice(i, 1);
-      }
-    });
-    const roomIds = Object.keys(rooms);
-    roomIds.forEach((rId) => {
-      if (rooms[rId].attendees.includes(client)) {
+    const leave_id = client.uid;
+    const room_id = client.room;
+    if (client.room) {
+      const thisRoom = ROOMS.get(room_id);
+      if (thisRoom.attendees.has(leave_id)) {
         const msg = {
           type: "leave",
           message: "Tschö mit Ö",
           id: client.uid,
         };
-        rooms[rId].attendees.forEach((c) => {
+        thisRoom.attendees.forEach((c) => {
           if (c !== client) {
             c.send(JSON.stringify(msg));
           }
         });
-        rooms[rId].attendees.forEach((c, i) => {
-          if (c === client) {
-            clients.splice(i, 1);
-          }
-        });
-        if (rooms[rId].attendees.length === 0) {
-          delete rooms[rId];
+        thisRoom.attendees.delete(leave_id);
+        if (thisRoom.attendees.size === 0) {
+          ROOMS.delete(room_id);
         }
       }
-    });
+    }
+    CLIENTS.delete(leave_id);
   });
   client.on("message", (m) => {
     const msg = JSON.parse(m);
@@ -59,37 +53,42 @@ wss.on("connection", (client) => {
         client.name = msg.message;
         break;
       case "message":
-        console.log(client.name);
-        msg.id = client.name;
-        if (rooms[room]) {
-          rooms[room].attendees.forEach((c) => {
+        if (ROOMS.has(room)) {
+          const thisRoom = ROOMS.get(room);
+          console.log(client.name);
+          msg.id = client.name;
+          thisRoom.attendees.forEach((c) => {
             c.send(JSON.stringify(msg));
           });
         }
         break;
       case "join":
-        if (!rooms[room]) {
-          rooms[room] = {
-            name: "",
+        client.room = room;
+        if (!ROOMS.has(room)) {
+          const newroom = {
+            name: room,
             host: client,
-            attendees: [],
+            attendees: new Map(),
           };
+          ROOMS.set(room, newroom);
         }
-        rooms[room].attendees.push(client);
+        const thisRoom = ROOMS.get(room);
+        thisRoom.attendees.set(client.uid, client);
         const list = [];
-        rooms[room].attendees.forEach((c) => {
+        thisRoom.attendees.forEach((c) => {
           list.push({ name: c.name, id: c.uid });
         });
         const m = { message: list, id: client.uid, type: "list" };
-        rooms[room].attendees.forEach((c) => {
+        thisRoom.attendees.forEach((c) => {
           c.send(JSON.stringify(m));
         });
         break;
       case "available":
-        if (rooms[room]) {
+        if (ROOMS.has(room)) {
+          const thisRoom = ROOMS.get(room);
           msg.id = msg.message;
           msg.message = client.name;
-          rooms[room].attendees.forEach((c) => {
+          thisRoom.attendees.forEach((c) => {
             console.log("call", c.name);
             if (c !== client) {
               c.send(JSON.stringify(msg));
